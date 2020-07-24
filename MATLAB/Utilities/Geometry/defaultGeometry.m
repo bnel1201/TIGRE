@@ -1,5 +1,5 @@
 classdef defaultGeometry < Geometry
-%%geo = defaultGeometry() generates a default geomtry for tests.
+%%geo = defaultGeometry() generates a default geometry for tests.
 % Optional parameters
 %
 % 'mode'      : 'parallel' or 'cone'
