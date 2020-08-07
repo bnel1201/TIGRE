@@ -105,7 +105,7 @@ classdef Geometry < GeometryInterface
     end
     
     methods
-        function obj = checkGeo(obj, angles)
+        function geo_struct = checkGeo(obj, angles)
 
             check_fieldnames(obj)
 
@@ -113,7 +113,7 @@ classdef Geometry < GeometryInterface
 
             check_detector_data(obj)
 
-            check_DSO(obj, angles)
+            obj = check_DSO_and_DSD(obj, angles);
 
             % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % Now we know that optional fields are properly written or they would have
@@ -167,16 +167,21 @@ classdef Geometry < GeometryInterface
             if isfield(obj,'accuracy')
                 check_accuracy(obj)
                 if obj.accuracy>1
-                    warning('geo.accuracy too big, you will ignore image information resulting in wrogn recosntruction.\n Change geo.accuracy to smaller or equal than 1.')
+                    warning('geo.accuracy too big, you will ignore image information resulting in wrong reconstruction.\n Change geo.accuracy to smaller or equal than 1.')
                 end
             else
                 obj.accuracy=0.5;
             end
+            
+            % finally must convert properties into a struct before passing
+            % to a mex function
+            geo_struct = to_struct(obj);
         end
     end
     
     methods (Access = protected)
         function check_fieldnames(obj)
+            
             geofields_mandatory = get_mandatory_fields();
             geofields_optional = get_optional_fields();
 
@@ -189,7 +194,6 @@ classdef Geometry < GeometryInterface
             check_if_double_type(obj, geofields_mandatory);
     
             function geofields_mandatory = get_mandatory_fields()
-                % note: having an interface already handles this
                 geofields_mandatory={
                                      'nVoxel';
                                      'sVoxel';
@@ -212,26 +216,24 @@ classdef Geometry < GeometryInterface
             end
 
             function check_for_appropriate_fields(fnames, geofields_mandatory,geofields_optional)
+                allfields=horzcat(geofields_mandatory,geofields_optional);
 
-        allfields=horzcat(geofields_mandatory,geofields_optional);
-
-        % Find if geo has fields we do not recongize
-        unknown=~ismember(fnames,allfields);
-        % there must be not unknown variables
-        % TODO: Do we really want to enforce this? Perhaps just a warning?
-        assert(~sum(unknown),'TIGRE:checkGeo:BadGeometry',['The following fields are not known by TIGRE:\n' strjoin(fnames(unknown)),'\nMake sure you have not misspelled any field or introduced unnecesary fields.'])
+                % Find if geo has fields we do not recongize
+                unknown=~ismember(fnames,allfields);
+                % there must be not unknown variables
+                % TODO: Do we really want to enforce this? Perhaps just a warning?
+                assert(~sum(unknown),'TIGRE:checkGeo:BadGeometry',['The following fields are not known by TIGRE:\n' strjoin(fnames(unknown)),'\nMake sure you have not misspelled any field or introduced unnecesary fields.'])
             end
 
             function check_for_missing_fields(fnames, geofields_mandatory)
-                    % check mandatory fields
-        mandatory=ismember(geofields_mandatory,fnames);
-        assert(sum(mandatory)==length(geofields_mandatory),'TIGRE:checkGeo:BadGeometry',['The following fields are missing:\n' strjoin(geofields_mandatory(~mandatory))])
+                mandatory=ismember(geofields_mandatory,fnames);
+                assert(sum(mandatory)==length(geofields_mandatory),'TIGRE:checkGeo:BadGeometry',['The following fields are missing:\n' strjoin(geofields_mandatory(~mandatory))])
             end
 
             function check_if_double_type(geo, geofields_mandatory)
-        for ii=1:length(geofields_mandatory)
-            assert(isa(geo.(geofields_mandatory{ii}),'double'),'TIGRE:checkGeo:BadGeometry',['Field geo.', geofields_mandatory{ii},' is not double type.'])
-        end
+                for ii=1:length(geofields_mandatory)
+                    assert(isa(geo.(geofields_mandatory{ii}),'double'),'TIGRE:checkGeo:BadGeometry',['Field geo.', geofields_mandatory{ii},' is not double type.'])
+                end
             end
     
         end
@@ -258,16 +260,15 @@ classdef Geometry < GeometryInterface
             assert(sum(abs(obj.dDetector.*obj.nDetector-obj.sDetector))<1e-6, 'TIGRE:checkGeo:BadGeometry', 'nDetector*dDetector is not sDetector, something is wrong in the numbers')
         end
 
-        function check_DSO(obj, angles)
+        function obj = check_DSO_and_DSD(obj, angles)
             assert(isequal(size(obj.DSD),[1 1]) | isequal(size(obj.DSD),[1 size(angles,2)]),'TIGRE:checkGeo:BadGeometry','geo.DSD Should be 1x1 or 1xsize(angles,2)')
+
+            assert(isequal(size(obj.DSO),[1 1]) | isequal(size(obj.DSO),[1 size(angles,2)]),'TIGRE:checkGeo:BadGeometry','geo.DSD Should be 1x1 or 1xsize(angles,2)')
             if isequal(size(obj.DSD),[1 1])
                 obj.DSD=repmat(obj.DSD,[1, size(angles,2)]);
             end
-            assert(isequal(size(obj.DSO),[1 1]) | isequal(size(obj.DSO),[1 size(angles,2)]),'TIGRE:checkGeo:BadGeometry','geo.DSD Should be 1x1 or 1xsize(angles,2)')
-
             if isequal(size(obj.DSO),[1 1])
                 obj.DSO=repmat(obj.DSO,[1, size(angles,2)]);
-
             end
 
             assert(all(obj.DSD>=obj.DSO), 'TIGRE:checkGeo:BadGeometry','DSD shoudl be bigger or equal to DSO');
@@ -302,5 +303,6 @@ classdef Geometry < GeometryInterface
             assert(isscalar(obj.accuracy),'TIGRE:checkGeo:BadGeometry','geo.accuracy should be a scalar');
             assert(isa(obj.accuracy,'double'),'TIGRE:checkGeo:BadGeometry','geo.accuracy should be double');
         end
+        
     end
 end

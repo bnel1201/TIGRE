@@ -27,5 +27,15 @@ classdef (Abstract) GeometryInterface
         % all required methods for continued functionality here
         checkGeo(obj, angles)
     end
+    
+    methods (Access = protected)
+        % required as argument to mex functions
+       function geo = to_struct(obj)
+            fields = fieldnames(obj);
+            for f = 1:length(fields)
+                geo.(fields{f}) = obj.(fields{f});
+            end
+        end 
+    end
 end
 
